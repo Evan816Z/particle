@@ -1,0 +1,377 @@
+/*
+  =========================================
+  css/main.css
+  全局页面样式文件
+  职责：
+  1. 页面基础重置与全屏布局
+  2. 深空星空背景效果
+  3. 悬浮设置按钮样式
+  4. 设置弹窗面板样式与动画
+  5. 移动端自适应适配
+  =========================================
+*/
+
+/* CSS 变量：统一颜色与尺寸令牌，便于维护 */
+:root {
+  --bg-color: #020204;
+  --panel-bg: rgba(20, 22, 30, 0.85);
+  --panel-border: rgba(255, 255, 255, 0.12);
+  --text-primary: #f0f0f5;
+  --text-secondary: #a0a0b0;
+  --accent-color: #f4d03f;
+  --accent-glow: rgba(244, 208, 63, 0.45);
+  --shadow-heavy: rgba(0, 0, 0, 0.6);
+}
+
+/* 全局重置：去除默认边距与滚动条，确保全屏无溢出 */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background-color: var(--bg-color);
+  color: var(--text-primary);
+  -webkit-tap-highlight-color: transparent;
+}
+
+/*
+  深空星空背景：
+  使用径向渐变叠加多层细小径向圆点，模拟远处恒星。
+  因背景星空为静态衬托，不通过 Three.js 渲染，节省性能。
+*/
+body {
+  background:
+    radial-gradient(circle at 20% 30%, rgba(255, 255, 255, 0.08) 0.5px, transparent 0.5px),
+    radial-gradient(circle at 80% 70%, rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+    radial-gradient(circle at 40% 80%, rgba(255, 255, 255, 0.07) 0.8px, transparent 0.8px),
+    radial-gradient(circle at 60% 20%, rgba(255, 255, 255, 0.05) 1.2px, transparent 1.2px),
+    radial-gradient(circle at 10% 90%, rgba(255, 255, 255, 0.06) 0.6px, transparent 0.6px),
+    radial-gradient(circle at 90% 10%, rgba(255, 255, 255, 0.07) 0.9px, transparent 0.9px),
+    var(--bg-color);
+  background-size:
+    220px 220px,
+    340px 340px,
+    280px 280px,
+    400px 400px,
+    260px 260px,
+    360px 360px,
+    100% 100%;
+}
+
+/* 3D 画布容器：占满全屏 */
+#scene-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+}
+
+#scene-container canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/*
+  悬浮圆形设置按钮：
+  固定在右下角，毛玻璃效果， hover 时放大并增强发光。
+*/
+.settings-btn {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  width: 56px;
+  height: 56px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow:
+    0 4px 20px var(--shadow-heavy),
+    inset 0 0 0 1px var(--panel-border),
+    0 0 18px var(--accent-glow);
+  color: var(--text-primary);
+  cursor: pointer;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.25s ease, box-shadow 0.25s ease, background 0.25s ease;
+}
+
+.settings-btn:hover {
+  transform: scale(1.08);
+  background: rgba(255, 255, 255, 0.14);
+  box-shadow:
+    0 6px 28px var(--shadow-heavy),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.2),
+    0 0 28px var(--accent-glow);
+}
+
+.settings-btn:active {
+  transform: scale(0.96);
+}
+
+.settings-icon {
+  font-size: 26px;
+  line-height: 1;
+  display: block;
+  transition: transform 0.4s ease;
+}
+
+.settings-btn.active .settings-icon {
+  transform: rotate(90deg);
+}
+
+/*
+  设置面板：
+  右侧抽屉式滑出，深色半透明背景，毛玻璃效果。
+*/
+.settings-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 320px;
+  max-width: 85vw;
+  height: 100%;
+  background: var(--panel-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-left: 1px solid var(--panel-border);
+  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.5);
+  z-index: 200;
+  transform: translateX(100%);
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+  display: flex;
+  flex-direction: column;
+}
+
+.settings-panel.open {
+  transform: translateX(0);
+}
+
+/* 面板头部：标题与关闭按钮 */
+.settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 22px;
+  border-bottom: 1px solid var(--panel-border);
+}
+
+.settings-header h2 {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.settings-close {
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.settings-close:hover {
+  background: rgba(255, 255, 255, 0.18);
+  transform: rotate(90deg);
+}
+
+/* 面板主体：滑块与开关 */
+.settings-body {
+  flex: 1;
+  padding: 24px 22px;
+  overflow-y: auto;
+}
+
+.control-group {
+  margin-bottom: 24px;
+}
+
+.control-group label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-bottom: 10px;
+}
+
+.value-label {
+  color: var(--accent-color);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 滑动条基础样式 */
+input[type="range"] {
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.12);
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--accent-color);
+  box-shadow: 0 0 12px var(--accent-glow);
+  transition: transform 0.15s ease;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border: none;
+  border-radius: 50%;
+  background: var(--accent-color);
+  box-shadow: 0 0 12px var(--accent-glow);
+}
+
+/* 开关样式：并排布局 */
+.toggle-group {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.toggle-group label {
+  margin-bottom: 0;
+  flex: 1;
+}
+
+.toggle-switch {
+  position: relative;
+  width: 48px;
+  height: 26px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 13px;
+  outline: none;
+  cursor: pointer;
+  transition: background 0.25s ease;
+}
+
+.toggle-switch::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.toggle-switch:checked {
+  background: var(--accent-color);
+}
+
+.toggle-switch:checked::after {
+  transform: translateX(22px);
+}
+
+/* 帧率显示 */
+.fps-display {
+  margin-top: 8px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  font-size: 13px;
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+#fps-value {
+  color: var(--accent-color);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 摄像头视频元素：默认隐藏，仅用于手势识别输入 */
+.gesture-video {
+  position: fixed;
+  bottom: 10px;
+  left: 10px;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/*
+  移动端自适应：
+  1. 设置按钮尺寸略微增大，便于手指点击
+  2. 面板宽度适应小屏
+  3. 控件间距适当调整
+*/
+@media (max-width: 768px) {
+  .settings-btn {
+    right: 16px;
+    bottom: 16px;
+    width: 50px;
+    height: 50px;
+  }
+
+  .settings-icon {
+    font-size: 22px;
+  }
+
+  .settings-panel {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .settings-header {
+    padding: 18px 20px;
+  }
+
+  .settings-body {
+    padding: 20px;
+  }
+
+  .control-group {
+    margin-bottom: 20px;
+  }
+}
+
+/* 横屏小屏手机额外优化 */
+@media (max-width: 480px) and (orientation: landscape) {
+  .settings-panel {
+    width: 280px;
+    max-width: 80vw;
+  }
+}

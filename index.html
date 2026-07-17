@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <!-- 禁止缩放，确保移动端全屏展示且无任何横向滚动条 -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>写实土星 3D 粒子云可视化</title>
+  <!-- 页面全局样式表：背景、悬浮按钮、设置面板、响应式布局 -->
+  <link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+  <!--
+    =========================================
+    index.html
+    页面入口文件，职责单一：
+    1. 定义页面 DOM 结构
+    2. 引入外部 CSS 与 JS 资源
+    3. 不写入大量渲染、交互业务逻辑
+    =========================================
+  -->
+
+  <!-- 3D 渲染画布容器，Three.js 将在此创建 canvas -->
+  <div id="scene-container"></div>
+
+  <!-- 右下角悬浮圆形设置按钮 -->
+  <button id="settings-btn" class="settings-btn" aria-label="打开设置面板">
+    <span class="settings-icon">⚙</span>
+  </button>
+
+  <!-- 右侧设置面板（默认收起） -->
+  <aside id="settings-panel" class="settings-panel">
+    <div class="settings-header">
+      <h2>设置</h2>
+      <button id="settings-close" class="settings-close" aria-label="关闭设置面板">×</button>
+    </div>
+
+    <div class="settings-body">
+      <!-- 粒子密度滑块 -->
+      <div class="control-group">
+        <label for="density-slider">
+          粒子密度
+          <span id="density-value" class="value-label">1.0</span>
+        </label>
+        <input id="density-slider" type="range" min="0.2" max="2.0" step="0.1" value="1.0">
+      </div>
+
+      <!-- 土星整体尺寸滑块 -->
+      <div class="control-group">
+        <label for="size-slider">
+          土星尺寸
+          <span id="size-value" class="value-label">1.0</span>
+        </label>
+        <input id="size-slider" type="range" min="0.5" max="2.0" step="0.1" value="1.0">
+      </div>
+
+      <!-- 陀螺仪功能开关 -->
+      <div class="control-group toggle-group">
+        <label for="gyro-toggle">陀螺仪控制</label>
+        <input id="gyro-toggle" type="checkbox" class="toggle-switch">
+      </div>
+
+      <!-- 摄像头手势识别开关 -->
+      <div class="control-group toggle-group">
+        <label for="camera-toggle">摄像头手势识别</label>
+        <input id="camera-toggle" type="checkbox" class="toggle-switch">
+      </div>
+
+      <!-- 实时帧率显示 -->
+      <div class="fps-display">FPS: <span id="fps-value">--</span></div>
+    </div>
+  </aside>
+
+  <!-- 摄像头视频元素（隐藏，用于手势识别） -->
+  <video id="gesture-video" class="gesture-video" playsinline muted></video>
+
+  <!--
+    第三方依赖统一通过稳定公共 CDN 引入，无需本地下载：
+    1. Three.js：3D 渲染核心库
+    2. HandTrack.js：摄像头手部检测与手势分类库
+  -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/handtrackjs/dist/handtrack.min.js"></script>
+
+  <!--
+    业务 JS 按依赖顺序引入：
+    performanceOpt.js 提供全局工具与性能监控，最先加载；
+    initScene.js 初始化 Three.js 场景；
+    mouseTouchControl.js / gyroControl.js / handGesture.js 为并行交互模块；
+    settingPanel.js 绑定 UI 控件，最后加载。
+  -->
+  <script src="js/performanceOpt.js"></script>
+  <script src="js/initScene.js"></script>
+  <script src="js/mouseTouchControl.js"></script>
+  <script src="js/gyroControl.js"></script>
+  <script src="js/handGesture.js"></script>
+  <script src="js/settingPanel.js"></script>
+</body>
+</html>
