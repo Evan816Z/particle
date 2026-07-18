@@ -37,7 +37,7 @@
     0.1,
     2000
   );
-  camera.position.set(0, 0, 28);
+  camera.position.set(0, 0, 32);
 
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
   renderer.setSize(window.innerWidth, window.innerHeight);
@@ -47,16 +47,16 @@
   // =========================================================
   // 光照：环境光 + 方向光（模拟太阳从侧上方照射）
   // =========================================================
-  const ambientLight = new THREE.AmbientLight(0xffffff, 0.35);
+  const ambientLight = new THREE.AmbientLight(0xffffff, 0.45);
   scene.add(ambientLight);
 
-  const sunLight = new THREE.DirectionalLight(0xfff4e0, 0.9);
-  sunLight.position.set(15, 10, 15);
+  const sunLight = new THREE.DirectionalLight(0xfff4e0, 1.0);
+  sunLight.position.set(20, 12, 18);
   scene.add(sunLight);
 
   // 背面辅助光，让粒子轮廓更柔和
-  const rimLight = new THREE.DirectionalLight(0x445588, 0.25);
-  rimLight.position.set(-10, -5, -10);
+  const rimLight = new THREE.DirectionalLight(0x445588, 0.2);
+  rimLight.position.set(-12, -6, -12);
   scene.add(rimLight);
 
   // =========================================================
@@ -72,7 +72,7 @@
   // 土星基础参数
   const SATURN_BASE_RADIUS = 6;
   const RING_INNER_RADIUS = 9;
-  const RING_OUTER_RADIUS = 17;
+  const RING_OUTER_RADIUS = 18;
 
   // =========================================================
   // 颜色工具函数
@@ -99,22 +99,61 @@
   }
 
   // =========================================================
+  // 粒子纹理：使用 Canvas 生成圆形柔光贴图，避免默认方块粒子
+  // =========================================================
+
+  /**
+   * 创建圆形粒子贴图
+   * @param {number} size - 贴图尺寸
+   * @param {string} glowColor - 光晕颜色（可选）
+   * @returns {THREE.CanvasTexture}
+   */
+  function createCircleTexture(size, glowColor) {
+    const canvas = document.createElement("canvas");
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext("2d");
+
+    const center = size / 2;
+    const radius = size / 2 - 2;
+
+    // 径向渐变：中心不透明，边缘透明，形成柔光圆点
+    const gradient = ctx.createRadialGradient(center, center, 0, center, center, radius);
+    gradient.addColorStop(0, "rgba(255, 255, 255, 1)");
+    gradient.addColorStop(0.4, "rgba(255, 255, 255, 0.8)");
+    gradient.addColorStop(0.7, "rgba(255, 255, 255, 0.3)");
+    gradient.addColorStop(1, "rgba(255, 255, 255, 0)");
+
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.arc(center, center, radius, 0, Math.PI * 2);
+    ctx.fill();
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.needsUpdate = true;
+    return texture;
+  }
+
+  // 共享圆形贴图
+  const circleTexture = createCircleTexture(64);
+
+  // =========================================================
   // 星空粒子生成
   // =========================================================
   function createStarField() {
-    const count = 2500;
+    const count = 6000;
     const geometry = new THREE.BufferGeometry();
     const positions = new Float32Array(count * 3);
     const colors = new Float32Array(count * 3);
     const sizes = new Float32Array(count);
 
     const color1 = new THREE.Color(0xffffff);
-    const color2 = new THREE.Color(0xaaaaff);
+    const color2 = new THREE.Color(0xaaccff);
     const color3 = new THREE.Color(0xffeebb);
 
     for (let i = 0; i < count; i++) {
       // 在球形空间内随机分布
-      const radius = 80 + Math.random() * 200;
+      const radius = 90 + Math.random() * 250;
       const theta = Math.random() * Math.PI * 2;
       const phi = Math.acos(2 * Math.random() - 1);
 
@@ -125,16 +164,18 @@
       // 随机星光颜色
       const r = Math.random();
       let c;
-      if (r < 0.6) c = color1;
-      else if (r < 0.85) c = color2;
+      if (r < 0.65) c = color1;
+      else if (r < 0.88) c = color2;
       else c = color3;
 
-      colors[i * 3] = c.r;
-      colors[i * 3 + 1] = c.g;
-      colors[i * 3 + 2] = c.b;
+      // 随机亮度变化
+      const brightness = 0.6 + Math.random() * 0.4;
+      colors[i * 3] = c.r * brightness;
+      colors[i * 3 + 1] = c.g * brightness;
+      colors[i * 3 + 2] = c.b * brightness;
 
-      // 随机大小
-      sizes[i] = 0.05 + Math.random() * 0.25;
+      // 随机大小，让星星更明显
+      sizes[i] = 0.1 + Math.random() * 0.5;
     }
 
     geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
@@ -142,13 +183,15 @@
     geometry.setAttribute("size", new THREE.BufferAttribute(sizes, 1));
 
     const material = new THREE.PointsMaterial({
-      size: 0.15,
+      size: 0.35,
+      map: circleTexture,
       vertexColors: true,
       transparent: true,
-      opacity: 0.85,
+      opacity: 0.9,
       sizeAttenuation: true,
       blending: THREE.AdditiveBlending,
-      depthWrite: false
+      depthWrite: false,
+      alphaTest: 0.01
     });
 
     starPoints = new THREE.Points(geometry, material);
@@ -159,8 +202,8 @@
   // 土星球体粒子生成
   // =========================================================
   function createSaturnSphere() {
-    // 基础数量，随 density 变化
-    const baseCount = 12000;
+    // 基础数量，随 density 变化；降低默认值避免过度重叠发白
+    const baseCount = 8000;
     const count = Math.floor(baseCount * window.AppState.density);
 
     const geometry = new THREE.BufferGeometry();
@@ -168,12 +211,13 @@
     const colors = new Float32Array(count * 3);
     const sizes = new Float32Array(count);
 
-    // 土星条纹配色
+    // 土星条纹配色：增强对比，让色带更清晰
+    const paleYellow = hexColor("#f9e79f");
     const yellow = hexColor("#f4d03f");
-    const tan = hexColor("#d4a574");
-    const orange = hexColor("#e89b50");
-    const darkTan = hexColor("#a67c52");
-    const cream = hexColor("#f5e6c8");
+    const tan = hexColor("#c8956d");
+    const orange = hexColor("#e67e22");
+    const darkTan = hexColor("#8d6e63");
+    const cream = hexColor("#fef9e7");
 
     const goldenRatio = (1 + Math.sqrt(5)) / 2;
 
@@ -183,7 +227,7 @@
       const theta = 2 * Math.PI * i / goldenRatio;
       const phi = Math.acos(1 - 2 * t);
 
-      const radius = SATURN_BASE_RADIUS * window.AppState.saturnSize * (0.95 + Math.random() * 0.08);
+      const radius = SATURN_BASE_RADIUS * window.AppState.saturnSize * (0.96 + Math.random() * 0.06);
       const x = radius * Math.sin(phi) * Math.cos(theta);
       const y = radius * Math.cos(phi);
       const z = radius * Math.sin(phi) * Math.sin(theta);
@@ -192,31 +236,40 @@
       positions[i * 3 + 1] = y;
       positions[i * 3 + 2] = z;
 
-      // 根据纬度（y/radius）生成条纹色带
+      // 根据纬度生成清晰的条纹色带
       const latitude = y / radius;
-      const band = Math.sin(latitude * 10 + Math.sin(latitude * 6) * 0.5);
+      // 使用复合正弦波制造多层土星云带
+      const bandValue = Math.sin(latitude * 16) * 0.7 + Math.sin(latitude * 28) * 0.3;
+
       let c;
-      if (band > 0.5) {
-        c = mixColor(cream, yellow, 0.6);
-      } else if (band > 0) {
-        c = mixColor(tan, orange, 0.5);
-      } else if (band > -0.5) {
-        c = mixColor(tan, darkTan, 0.5);
+      if (bandValue > 0.45) {
+        c = cream.clone();
+      } else if (bandValue > 0.15) {
+        c = mixColor(paleYellow, yellow, 0.7);
+      } else if (bandValue > -0.15) {
+        c = tan.clone();
+      } else if (bandValue > -0.45) {
+        c = mixColor(orange, darkTan, 0.5);
       } else {
-        c = mixColor(darkTan, orange, 0.3);
+        c = darkTan.clone();
       }
 
-      // 赤道区域略微提亮
-      if (Math.abs(latitude) < 0.25) {
-        c = mixColor(c, cream, 0.25);
+      // 赤道区域明显提亮
+      if (Math.abs(latitude) < 0.18) {
+        c = mixColor(c, cream, 0.35);
+      }
+
+      // 极区略微加深
+      if (Math.abs(latitude) > 0.75) {
+        c = mixColor(c, darkTan, 0.25);
       }
 
       colors[i * 3] = c.r;
       colors[i * 3 + 1] = c.g;
       colors[i * 3 + 2] = c.b;
 
-      // 粒子大小随位置随机，赤道附近略大
-      sizes[i] = 0.18 + Math.random() * 0.12 + (Math.abs(latitude) < 0.3 ? 0.05 : 0);
+      // 粒子大小较小，避免重叠发白；赤道附近略大
+      sizes[i] = 0.14 + Math.random() * 0.08 + (Math.abs(latitude) < 0.25 ? 0.03 : 0);
     }
 
     geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
@@ -224,13 +277,16 @@
     geometry.setAttribute("size", new THREE.BufferAttribute(sizes, 1));
 
     const material = new THREE.PointsMaterial({
-      size: 0.28,
+      size: 0.22,
+      map: circleTexture,
       vertexColors: true,
       transparent: true,
-      opacity: 0.92,
+      opacity: 0.85,
       sizeAttenuation: true,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false
+      // 使用 NormalBlending 保留土星本色，避免 AdditiveBlending 叠加成白
+      blending: THREE.NormalBlending,
+      depthWrite: true,
+      alphaTest: 0.05
     });
 
     saturnPoints = new THREE.Points(geometry, material);
@@ -241,7 +297,7 @@
   // 土星环粒子生成
   // =========================================================
   function createSaturnRing() {
-    const baseCount = 20000;
+    const baseCount = 14000;
     const count = Math.floor(baseCount * window.AppState.density);
 
     const geometry = new THREE.BufferGeometry();
@@ -250,20 +306,21 @@
     const sizes = new Float32Array(count);
 
     // 星环配色
-    const gray = hexColor("#c0c0c0");
+    const gray = hexColor("#d0d0d0");
     const cream = hexColor("#f5f5dc");
     const brown = hexColor("#b8a088");
     const darkGray = hexColor("#7a7a7a");
 
     for (let i = 0; i < count; i++) {
       // 在内外半径之间按平方根分布，保证环面密度均匀
-      const t = Math.random();
+      const t = Math.sqrt(Math.random());
       const radius = (RING_INNER_RADIUS + (RING_OUTER_RADIUS - RING_INNER_RADIUS) * t) * window.AppState.saturnSize;
       const theta = Math.random() * Math.PI * 2;
 
       // 环的厚度：越靠近土星越厚，整体很薄
-      const thicknessScale = 1 - 0.6 * ((radius / window.AppState.saturnSize - RING_INNER_RADIUS) / (RING_OUTER_RADIUS - RING_INNER_RADIUS));
-      const thickness = 0.08 * thicknessScale * window.AppState.saturnSize * (0.5 + Math.random());
+      const radiusNorm = (radius / window.AppState.saturnSize - RING_INNER_RADIUS) / (RING_OUTER_RADIUS - RING_INNER_RADIUS);
+      const thicknessScale = 1 - 0.5 * radiusNorm;
+      const thickness = 0.06 * thicknessScale * window.AppState.saturnSize * (0.5 + Math.random());
 
       const x = radius * Math.cos(theta);
       const z = radius * Math.sin(theta);
@@ -273,28 +330,27 @@
       positions[i * 3 + 1] = y;
       positions[i * 3 + 2] = z;
 
-      // 根据半径分层着色
-      const radiusNorm = (radius / window.AppState.saturnSize - RING_INNER_RADIUS) / (RING_OUTER_RADIUS - RING_INNER_RADIUS);
+      // 根据半径分层着色，让环带颜色区分更明显
       let c;
-      if (radiusNorm < 0.25) {
+      if (radiusNorm < 0.2) {
         // 内环偏暗灰、浅棕
-        c = mixColor(darkGray, brown, 0.5 + Math.random() * 0.3);
-      } else if (radiusNorm < 0.55) {
+        c = mixColor(darkGray, brown, 0.4 + Math.random() * 0.2);
+      } else if (radiusNorm < 0.45) {
         // 中环奶白
-        c = mixColor(cream, gray, 0.4 + Math.random() * 0.2);
-      } else if (radiusNorm < 0.8) {
+        c = cream.clone();
+      } else if (radiusNorm < 0.75) {
         // 外环淡灰
-        c = mixColor(gray, cream, 0.3 + Math.random() * 0.3);
+        c = mixColor(gray, cream, 0.3 + Math.random() * 0.2);
       } else {
         // 最外环浅棕
-        c = mixColor(brown, cream, 0.4 + Math.random() * 0.2);
+        c = mixColor(brown, cream, 0.35 + Math.random() * 0.25);
       }
 
       // 模拟环缝（Cassini Division）：在特定半径区间减少粒子亮度
       const cassiniStart = 0.55;
-      const cassiniEnd = 0.62;
+      const cassiniEnd = 0.65;
       if (radiusNorm > cassiniStart && radiusNorm < cassiniEnd) {
-        c = mixColor(c, new THREE.Color(0x000000), 0.35);
+        c = mixColor(c, new THREE.Color(0x1a1a1a), 0.45);
       }
 
       colors[i * 3] = c.r;
@@ -302,7 +358,7 @@
       colors[i * 3 + 2] = c.b;
 
       // 星环粒子较小，远处更细
-      sizes[i] = 0.1 + Math.random() * 0.12;
+      sizes[i] = 0.08 + Math.random() * 0.08;
     }
 
     geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
@@ -310,13 +366,15 @@
     geometry.setAttribute("size", new THREE.BufferAttribute(sizes, 1));
 
     const material = new THREE.PointsMaterial({
-      size: 0.18,
+      size: 0.14,
+      map: circleTexture,
       vertexColors: true,
       transparent: true,
-      opacity: 0.88,
+      opacity: 0.82,
       sizeAttenuation: true,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false
+      blending: THREE.NormalBlending,
+      depthWrite: true,
+      alphaTest: 0.05
     });
 
     ringPoints = new THREE.Points(geometry, material);
@@ -367,7 +425,7 @@
   };
 
   // 自动缓慢自转速度
-  const AUTO_ROTATE_SPEED = 0.0008;
+  const AUTO_ROTATE_SPEED = 0.0006;
 
   function animate() {
     requestAnimationFrame(animate);
@@ -395,9 +453,9 @@
     saturnGroup.scale.setScalar(current.zoom);
     saturnGroup.position.set(current.posX * 8, current.posY * 5, 0);
 
-    // 星空背景随相机轻微反向移动，增强景深
+    // 星空背景缓慢旋转，增强景深
     if (starPoints) {
-      starPoints.rotation.y += 0.0002;
+      starPoints.rotation.y += 0.00015;
     }
 
     renderer.render(scene, camera);
