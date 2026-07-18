@@ -37,7 +37,9 @@
     0.1,
     2000
   );
-  camera.position.set(0, 0, 32);
+  // 初始视角：斜上方俯视土星，能同时看到球体与星环的倾斜角度
+  camera.position.set(12, 14, 30);
+  camera.lookAt(0, 0, 0);
 
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
   renderer.setSize(window.innerWidth, window.innerHeight);
@@ -183,11 +185,11 @@
     geometry.setAttribute("size", new THREE.BufferAttribute(sizes, 1));
 
     const material = new THREE.PointsMaterial({
-      size: 0.35,
+      size: 0.55,
       map: circleTexture,
       vertexColors: true,
       transparent: true,
-      opacity: 0.9,
+      opacity: 1.0,
       sizeAttenuation: true,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
@@ -202,8 +204,8 @@
   // 土星球体粒子生成
   // =========================================================
   function createSaturnSphere() {
-    // 基础数量，随 density 变化；降低默认值避免过度重叠发白
-    const baseCount = 8000;
+    // 基础数量，随 density 变化；降低默认值避免 AdditiveBlending 过度叠加发白
+    const baseCount = 5000;
     const count = Math.floor(baseCount * window.AppState.density);
 
     const geometry = new THREE.BufferGeometry();
@@ -211,13 +213,13 @@
     const colors = new Float32Array(count * 3);
     const sizes = new Float32Array(count);
 
-    // 土星条纹配色：增强对比，让色带更清晰
-    const paleYellow = hexColor("#f9e79f");
-    const yellow = hexColor("#f4d03f");
-    const tan = hexColor("#c8956d");
-    const orange = hexColor("#e67e22");
-    const darkTan = hexColor("#8d6e63");
-    const cream = hexColor("#fef9e7");
+    // 土星条纹配色：使用高亮度、高饱和颜色，确保在 AdditiveBlending 下依然鲜艳
+    const paleYellow = hexColor("#fff5cc");
+    const yellow = hexColor("#ffdd55");
+    const tan = hexColor("#d4a574");
+    const orange = hexColor("#f39c12");
+    const darkTan = hexColor("#a0522d");
+    const cream = hexColor("#fffbea");
 
     const goldenRatio = (1 + Math.sqrt(5)) / 2;
 
@@ -277,15 +279,15 @@
     geometry.setAttribute("size", new THREE.BufferAttribute(sizes, 1));
 
     const material = new THREE.PointsMaterial({
-      size: 0.22,
+      size: 0.16,
       map: circleTexture,
       vertexColors: true,
       transparent: true,
-      opacity: 0.85,
+      opacity: 0.75,
       sizeAttenuation: true,
-      // 使用 NormalBlending 保留土星本色，避免 AdditiveBlending 叠加成白
-      blending: THREE.NormalBlending,
-      depthWrite: true,
+      // 使用 AdditiveBlending 让粒子自发光，同时通过小尺寸+低密度避免白化
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
       alphaTest: 0.05
     });
 
@@ -297,7 +299,7 @@
   // 土星环粒子生成
   // =========================================================
   function createSaturnRing() {
-    const baseCount = 14000;
+    const baseCount = 9000;
     const count = Math.floor(baseCount * window.AppState.density);
 
     const geometry = new THREE.BufferGeometry();
@@ -305,11 +307,11 @@
     const colors = new Float32Array(count * 3);
     const sizes = new Float32Array(count);
 
-    // 星环配色
-    const gray = hexColor("#d0d0d0");
-    const cream = hexColor("#f5f5dc");
-    const brown = hexColor("#b8a088");
-    const darkGray = hexColor("#7a7a7a");
+    // 星环配色：提高亮度，避免 AdditiveBlending 下偏暗
+    const gray = hexColor("#e8e8e8");
+    const cream = hexColor("#fffdf0");
+    const brown = hexColor("#d2b48c");
+    const darkGray = hexColor("#999999");
 
     for (let i = 0; i < count; i++) {
       // 在内外半径之间按平方根分布，保证环面密度均匀
@@ -366,14 +368,14 @@
     geometry.setAttribute("size", new THREE.BufferAttribute(sizes, 1));
 
     const material = new THREE.PointsMaterial({
-      size: 0.14,
+      size: 0.12,
       map: circleTexture,
       vertexColors: true,
       transparent: true,
-      opacity: 0.82,
+      opacity: 0.7,
       sizeAttenuation: true,
-      blending: THREE.NormalBlending,
-      depthWrite: true,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
       alphaTest: 0.05
     });
 
