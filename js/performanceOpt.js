@@ -15,7 +15,7 @@
 
   // 全局应用状态：各模块通过 window.AppState 读取/写入
   window.AppState = {
-    density: 1.0,          // 粒子密度倍率（0.2 ~ 2.0）
+    density: 1.5,          // 粒子密度倍率（0.2 ~ 2.0），初始值较高让远处也清晰可见
     saturnSize: 1.0,       // 土星整体尺寸倍率（0.5 ~ 2.0）
     gyroEnabled: false,    // 陀螺仪开关
     cameraEnabled: false,  // 摄像头手势开关

@@ -37,8 +37,8 @@
     0.1,
     2000
   );
-  // 初始视角：斜上方俯视土星，能同时看到球体与星环的倾斜角度
-  camera.position.set(12, 14, 30);
+  // 初始视角：斜上方俯视土星，距离更近，让远处也能看清细节
+  camera.position.set(8, 10, 24);
   camera.lookAt(0, 0, 0);
 
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
@@ -119,11 +119,12 @@
     const center = size / 2;
     const radius = size / 2 - 2;
 
-    // 径向渐变：中心不透明，边缘透明，形成柔光圆点
+    // 径向渐变：中心高亮，向外扩散柔光，让远处粒子也足够醒目
     const gradient = ctx.createRadialGradient(center, center, 0, center, center, radius);
     gradient.addColorStop(0, "rgba(255, 255, 255, 1)");
-    gradient.addColorStop(0.4, "rgba(255, 255, 255, 0.8)");
-    gradient.addColorStop(0.7, "rgba(255, 255, 255, 0.3)");
+    gradient.addColorStop(0.25, "rgba(255, 255, 255, 0.9)");
+    gradient.addColorStop(0.55, "rgba(255, 255, 255, 0.5)");
+    gradient.addColorStop(0.85, "rgba(255, 255, 255, 0.1)");
     gradient.addColorStop(1, "rgba(255, 255, 255, 0)");
 
     ctx.fillStyle = gradient;
@@ -136,14 +137,14 @@
     return texture;
   }
 
-  // 共享圆形贴图
-  const circleTexture = createCircleTexture(64);
+  // 共享圆形贴图，尺寸更大以保留更多光晕细节
+  const circleTexture = createCircleTexture(128);
 
   // =========================================================
   // 星空粒子生成
   // =========================================================
   function createStarField() {
-    const count = 6000;
+    const count = 8000;
     const geometry = new THREE.BufferGeometry();
     const positions = new Float32Array(count * 3);
     const colors = new Float32Array(count * 3);
@@ -154,8 +155,8 @@
     const color3 = new THREE.Color(0xffeebb);
 
     for (let i = 0; i < count; i++) {
-      // 在球形空间内随机分布
-      const radius = 90 + Math.random() * 250;
+      // 在球形空间内随机分布，部分星星放近一点确保可见
+      const radius = 60 + Math.random() * 300;
       const theta = Math.random() * Math.PI * 2;
       const phi = Math.acos(2 * Math.random() - 1);
 
@@ -170,14 +171,14 @@
       else if (r < 0.88) c = color2;
       else c = color3;
 
-      // 随机亮度变化
-      const brightness = 0.6 + Math.random() * 0.4;
+      // 随机亮度变化，大部分较亮
+      const brightness = 0.75 + Math.random() * 0.45;
       colors[i * 3] = c.r * brightness;
       colors[i * 3 + 1] = c.g * brightness;
       colors[i * 3 + 2] = c.b * brightness;
 
-      // 随机大小，让星星更明显
-      sizes[i] = 0.1 + Math.random() * 0.5;
+      // 随机大小，让星星在远处也清晰可见
+      sizes[i] = 0.4 + Math.random() * 1.2;
     }
 
     geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
@@ -185,7 +186,7 @@
     geometry.setAttribute("size", new THREE.BufferAttribute(sizes, 1));
 
     const material = new THREE.PointsMaterial({
-      size: 0.55,
+      size: 1.2,
       map: circleTexture,
       vertexColors: true,
       transparent: true,
@@ -213,13 +214,13 @@
     const colors = new Float32Array(count * 3);
     const sizes = new Float32Array(count);
 
-    // 土星条纹配色：使用高亮度、高饱和颜色，确保在 AdditiveBlending 下依然鲜艳
-    const paleYellow = hexColor("#fff5cc");
-    const yellow = hexColor("#ffdd55");
-    const tan = hexColor("#d4a574");
-    const orange = hexColor("#f39c12");
-    const darkTan = hexColor("#a0522d");
-    const cream = hexColor("#fffbea");
+    // 土星条纹配色：使用更高亮度、更高饱和颜色，确保在 AdditiveBlending 与远距离下依然鲜艳
+    const paleYellow = hexColor("#fff8dc");
+    const yellow = hexColor("#ffe135");
+    const tan = hexColor("#e6b87e");
+    const orange = hexColor("#ff9f1c");
+    const darkTan = hexColor("#b87333");
+    const cream = hexColor("#ffffff");
 
     const goldenRatio = (1 + Math.sqrt(5)) / 2;
 
@@ -270,8 +271,8 @@
       colors[i * 3 + 1] = c.g;
       colors[i * 3 + 2] = c.b;
 
-      // 粒子大小较小，避免重叠发白；赤道附近略大
-      sizes[i] = 0.14 + Math.random() * 0.08 + (Math.abs(latitude) < 0.25 ? 0.03 : 0);
+      // 粒子尺寸适中，保证远距离亮度；赤道附近略大
+      sizes[i] = 0.22 + Math.random() * 0.12 + (Math.abs(latitude) < 0.25 ? 0.04 : 0);
     }
 
     geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
@@ -279,13 +280,13 @@
     geometry.setAttribute("size", new THREE.BufferAttribute(sizes, 1));
 
     const material = new THREE.PointsMaterial({
-      size: 0.16,
+      size: 0.28,
       map: circleTexture,
       vertexColors: true,
       transparent: true,
-      opacity: 0.75,
+      opacity: 0.9,
       sizeAttenuation: true,
-      // 使用 AdditiveBlending 让粒子自发光，同时通过小尺寸+低密度避免白化
+      // 使用 AdditiveBlending 让粒子自发光，提高亮度让远处也清晰
       blending: THREE.AdditiveBlending,
       depthWrite: false,
       alphaTest: 0.05
@@ -307,11 +308,11 @@
     const colors = new Float32Array(count * 3);
     const sizes = new Float32Array(count);
 
-    // 星环配色：提高亮度，避免 AdditiveBlending 下偏暗
-    const gray = hexColor("#e8e8e8");
-    const cream = hexColor("#fffdf0");
-    const brown = hexColor("#d2b48c");
-    const darkGray = hexColor("#999999");
+    // 星环配色：使用更高亮度，让环带在远处也清晰可辨
+    const gray = hexColor("#ffffff");
+    const cream = hexColor("#fff8e7");
+    const brown = hexColor("#eac096");
+    const darkGray = hexColor("#bbbbbb");
 
     for (let i = 0; i < count; i++) {
       // 在内外半径之间按平方根分布，保证环面密度均匀
@@ -359,8 +360,8 @@
       colors[i * 3 + 1] = c.g;
       colors[i * 3 + 2] = c.b;
 
-      // 星环粒子较小，远处更细
-      sizes[i] = 0.08 + Math.random() * 0.08;
+      // 星环粒子尺寸适中，保证远距离可见
+      sizes[i] = 0.14 + Math.random() * 0.1;
     }
 
     geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
@@ -368,11 +369,11 @@
     geometry.setAttribute("size", new THREE.BufferAttribute(sizes, 1));
 
     const material = new THREE.PointsMaterial({
-      size: 0.12,
+      size: 0.22,
       map: circleTexture,
       vertexColors: true,
       transparent: true,
-      opacity: 0.7,
+      opacity: 0.85,
       sizeAttenuation: true,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
