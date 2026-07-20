@@ -32,12 +32,12 @@
   const MIN_ZOOM = 0.4;
   const MAX_ZOOM = 3.0;
 
-  // 模型加载参数：轻量配置，优先速度
+  // 模型加载参数：降低置信度阈值，提高识别灵敏度
   const modelParams = {
     flipHorizontal: true,   // 前置摄像头需要水平镜像
     maxNumBoxes: 1,         // 只检测一只手
     iouThreshold: 0.5,
-    scoreThreshold: 0.65    // 置信度阈值
+    scoreThreshold: 0.55    // 降低置信度阈值，让手势更容易被识别
   };
 
   /**
@@ -94,9 +94,9 @@
     const centerX = (bbox[0] + bbox[2] / 2) / videoWidth;
     const centerY = (bbox[1] + bbox[3] / 2) / videoHeight;
 
-    // 平滑手掌位置
-    smoothHandX = window.smooth(smoothHandX, centerX, 0.12);
-    smoothHandY = window.smooth(smoothHandY, centerY, 0.12);
+    // 平滑手掌位置：alpha 较高，让响应更灵敏同时保留一定平滑
+    smoothHandX = window.smooth(smoothHandX, centerX, 0.22);
+    smoothHandY = window.smooth(smoothHandY, centerY, 0.22);
 
     // 手掌位置映射：画面中心为 (0.5, 0.5)
     // 手掌左移 -> 土星向左旋转；右移 -> 向右旋转
@@ -106,10 +106,11 @@
 
     // 只有当用户没有主动拖拽时，手势才接管旋转与位置
     if (!state.userInteracting) {
-      state.rotation.y = window.lerp(state.rotation.y, offsetX * 1.2, 0.05);
-      state.rotation.x = window.lerp(state.rotation.x, -offsetY * 1.0, 0.05);
-      state.position.x = window.lerp(state.position.x, offsetX * 0.3, 0.05);
-      state.position.y = window.lerp(state.position.y, -offsetY * 0.2, 0.05);
+      // 增大映射系数，让手掌小幅移动也能带来明显旋转
+      state.rotation.y = window.lerp(state.rotation.y, offsetX * 2.5, 0.12);
+      state.rotation.x = window.lerp(state.rotation.x, -offsetY * 2.0, 0.12);
+      state.position.x = window.lerp(state.position.x, offsetX * 0.7, 0.12);
+      state.position.y = window.lerp(state.position.y, -offsetY * 0.5, 0.12);
     }
 
     // 手势缩放：
@@ -117,12 +118,12 @@
     // closed / pinch 视为握拳 -> 缩小
     let zoomTarget = state.zoom;
     if (label === "open" || label === "point") {
-      zoomTarget = window.clamp(state.zoom + 0.015, MIN_ZOOM, MAX_ZOOM);
+      zoomTarget = window.clamp(state.zoom + 0.05, MIN_ZOOM, MAX_ZOOM);
     } else if (label === "closed" || label === "pinch") {
-      zoomTarget = window.clamp(state.zoom - 0.015, MIN_ZOOM, MAX_ZOOM);
+      zoomTarget = window.clamp(state.zoom - 0.05, MIN_ZOOM, MAX_ZOOM);
     }
 
-    smoothZoom = window.smooth(smoothZoom, zoomTarget, 0.08);
+    smoothZoom = window.smooth(smoothZoom, zoomTarget, 0.15);
     state.zoom = smoothZoom;
   }
 

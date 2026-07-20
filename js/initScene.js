@@ -141,6 +141,69 @@
   const circleTexture = createCircleTexture(128);
 
   // =========================================================
+  // 土星大气光晕：使用 Sprite 营造震撼的发光效果
+  // =========================================================
+
+  /**
+   * 创建大尺寸柔和光晕贴图，用于土星背面光晕与整体氛围
+   * @param {number} size
+   * @param {string} colorHex
+   * @returns {THREE.CanvasTexture}
+   */
+  function createGlowTexture(size, colorHex) {
+    const canvas = document.createElement("canvas");
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext("2d");
+    const center = size / 2;
+    const radius = size / 2;
+
+    const color = new THREE.Color(colorHex);
+    const r = Math.floor(color.r * 255);
+    const g = Math.floor(color.g * 255);
+    const b = Math.floor(color.b * 255);
+
+    const gradient = ctx.createRadialGradient(center, center, 0, center, center, radius);
+    gradient.addColorStop(0, "rgba(" + r + "," + g + "," + b + ",0.35)");
+    gradient.addColorStop(0.35, "rgba(" + r + "," + g + "," + b + ",0.18)");
+    gradient.addColorStop(0.7, "rgba(" + r + "," + g + "," + b + ",0.05)");
+    gradient.addColorStop(1, "rgba(" + r + "," + g + "," + b + ",0)");
+
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, size, size);
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.needsUpdate = true;
+    return texture;
+  }
+
+  // 土星本体光晕（暖黄色）
+  const planetGlowTexture = createGlowTexture(512, "#f4d03f");
+  const planetGlowMaterial = new THREE.SpriteMaterial({
+    map: planetGlowTexture,
+    transparent: true,
+    opacity: 0.7,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false
+  });
+  const planetGlow = new THREE.Sprite(planetGlowMaterial);
+  planetGlow.scale.set(28, 28, 1);
+  saturnGroup.add(planetGlow);
+
+  // 土星环平面冷色光晕（淡蓝白色），增强环的科技感
+  const ringGlowTexture = createGlowTexture(512, "#aaccff");
+  const ringGlowMaterial = new THREE.SpriteMaterial({
+    map: ringGlowTexture,
+    transparent: true,
+    opacity: 0.35,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false
+  });
+  const ringGlow = new THREE.Sprite(ringGlowMaterial);
+  ringGlow.scale.set(50, 12, 1);
+  saturnGroup.add(ringGlow);
+
+  // =========================================================
   // 星空粒子生成
   // =========================================================
   function createStarField() {
@@ -430,17 +493,38 @@
   // 自动缓慢自转速度
   const AUTO_ROTATE_SPEED = 0.0006;
 
+  // 星空闪烁：保存原始尺寸数组
+  let starOriginalSizes = null;
+
+  // 相机初始位置（用于环绕漂移）
+  const cameraBasePosition = new THREE.Vector3(8, 10, 24);
+  const cameraOrbitRadius = Math.sqrt(
+    cameraBasePosition.x * cameraBasePosition.x +
+    cameraBasePosition.z * cameraBasePosition.z
+  );
+  const cameraOrbitSpeed = 0.0004;
+  let cameraOrbitAngle = Math.atan2(cameraBasePosition.x, cameraBasePosition.z);
+
   function animate() {
     requestAnimationFrame(animate);
 
     const state = window.AppState;
+    const time = performance.now() * 0.001;
 
     // 性能监控每帧更新
     window.updatePerformanceMonitor();
 
-    // 如果用户没有主动交互，土星缓慢自转
+    // 如果用户没有主动交互，土星缓慢自转 + 相机轻微环绕漂移
     if (!state.userInteracting) {
       state.rotation.y += AUTO_ROTATE_SPEED;
+
+      // 相机围绕 Y 轴做轻微环绕，营造电影感
+      cameraOrbitAngle += cameraOrbitSpeed;
+      const targetX = Math.sin(cameraOrbitAngle) * cameraOrbitRadius * 0.35;
+      const targetZ = Math.cos(cameraOrbitAngle) * cameraOrbitRadius * 0.35 + cameraOrbitRadius * 0.65;
+      camera.position.x = window.lerp(camera.position.x, targetX + 8, 0.008);
+      camera.position.z = window.lerp(camera.position.z, targetZ, 0.008);
+      camera.lookAt(0, 0, 0);
     }
 
     // 平滑插值到目标旋转、缩放、位移
@@ -456,9 +540,38 @@
     saturnGroup.scale.setScalar(current.zoom);
     saturnGroup.position.set(current.posX * 8, current.posY * 5, 0);
 
-    // 星空背景缓慢旋转，增强景深
+    // 光晕轻微脉动，增强震撼感
+    if (planetGlow) {
+      const pulse = 1 + Math.sin(time * 0.8) * 0.04;
+      planetGlow.scale.set(28 * pulse, 28 * pulse, 1);
+      planetGlow.material.opacity = 0.65 + Math.sin(time * 0.6) * 0.08;
+    }
+    if (ringGlow) {
+      const ringPulse = 1 + Math.sin(time * 0.5 + 1) * 0.03;
+      ringGlow.scale.set(50 * ringPulse, 12 * ringPulse, 1);
+    }
+
+    // 星空闪烁效果
     if (starPoints) {
-      starPoints.rotation.y += 0.00015;
+      starPoints.rotation.y += 0.00012;
+
+      const sizeAttr = starPoints.geometry.attributes.size;
+      if (!starOriginalSizes) {
+        starOriginalSizes = new Float32Array(sizeAttr.count);
+        for (let i = 0; i < sizeAttr.count; i++) {
+          starOriginalSizes[i] = sizeAttr.getX(i);
+        }
+      }
+
+      // 每帧只更新部分星星，降低计算开销
+      const updateCount = Math.min(sizeAttr.count, 200);
+      for (let i = 0; i < updateCount; i++) {
+        const idx = Math.floor(Math.random() * sizeAttr.count);
+        const baseSize = starOriginalSizes[idx];
+        const twinkle = 0.7 + 0.3 * Math.sin(time * 3 + idx * 0.1);
+        sizeAttr.setX(idx, baseSize * twinkle);
+      }
+      sizeAttr.needsUpdate = true;
     }
 
     renderer.render(scene, camera);
